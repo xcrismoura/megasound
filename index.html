@@ -131,7 +131,7 @@ button{font:inherit;cursor:pointer;touch-action:manipulation}
 </svg>
 <h1>Megasound</h1><p>Treine o ouvido pelos graus da escala</p>
 <div id="tbtns"><button class="big" id="bb">Batalhar</button></div>
-<div id="ver">Versão 2.7</div>
+<div id="ver">Versão 2.8</div>
 </div>
 <div id="giro">Gire o celular para a horizontal para jogar.</div>
 
@@ -228,7 +228,7 @@ if(app)return;var el=document.documentElement,r;try{r=(el.requestFullscreen||el.
 function lock(){try{var o=screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape");if(o&&o.catch)o.catch(function(){});}catch(e){}}
 $("bb").addEventListener("click",function(){fsUp();
 var AC=window.AudioContext||window.webkitAudioContext;if(!ctx)ctx=new AC();if(ctx.state==="suspended")ctx.resume();
-$("titulo").style.display="none";tom=7;$("tt").textContent=NOM[7];setModo("dom");begin();});
+$("titulo").style.display="none";tom=0;$("tt").textContent=NOM[0];setModo("dom");begin();});
 $("fimMenu").addEventListener("click",function(){$("mnu").click();});
 $("mnu").addEventListener("click",function(){$("fim").style.display="none";tok++;phase="menu";$("eo").style.display="none";$("co").style.display="none";$("painel").style.display="none";$("pnom").style.display="none";
 try{if(document.fullscreenElement)document.exitFullscreen();else if(document.webkitFullscreenElement)document.webkitExitFullscreen();}catch(e){}
