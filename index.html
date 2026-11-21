@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaSound — Dó-Móvel Action Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrapper">
+    <header class="hud-top">
+      <div class="hud-title">MEGASOUND <span class="badge">TONALIDADE: DÓ MAIOR</span></div>
+      <div class="hud-controls-hint">
+        <span>[1-8] ou [A-K]: Disparar Nota</span>
+        <span>[ESPAÇO]: Ouvir Tônica (Dó)</span>
+      </div>
+    </header>
+
+    <div class="canvas-container">
+      <canvas id="gameCanvas" width="960" height="480"></canvas>
+
+      <!-- Tela Inicial -->
+      <div id="startOverlay" class="overlay active">
+        <div class="panel">
+          <h1 class="logo">MEGASOUND</h1>
+          <p class="subtitle">PROTÓTIPO DE COMBATE AUDITIVO • DÓ-MÓVEL</p>
+          <div class="rules-box">
+            <p><strong>1.</strong> Ouça a referência de <strong>Dó</strong> no início da batalha (ou aperte <strong>Espaço</strong>).</p>
+            <p><strong>2.</strong> O inimigo à esquerda dispara uma <strong>Onda Sonora</strong> (Dó a Dó8).</p>
+            <p><strong>3.</strong> Contra-ataque disparando a <strong>mesma nota</strong>. Ao colidir, seu tiro absorve a energia da onda e atinge o inimigo!</p>
+            <p><strong>4.</strong> Errar a nota ou deixar a onda passar causa dano ao seu HP.</p>
+          </div>
+          <button id="startBtn" class="btn-primary">INICIAR BATALHA</button>
+        </div>
+      </div>
+
+      <!-- Tela de Fim de Jogo -->
+      <div id="endOverlay" class="overlay">
+        <div class="panel">
+          <h2 id="endTitle" class="logo">VITÓRIA!</h2>
+          <p id="endStats" class="subtitle"></p>
+          <button id="restartBtn" class="btn-primary">JOGAR NOVAMENTE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teclado / Controles de Disparo -->
+    <section class="note-deck" id="noteDeck">
+      <button class="note-btn" data-index="0"><span class="key">1 / A</span><span class="name">Dó</span></button>
+      <button class="note-btn" data-index="1"><span class="key">2 / S</span><span class="name">Ré</span></button>
+      <button class="note-btn" data-index="2"><span class="key">3 / D</span><span class="name">Mi</span></button>
+      <button class="note-btn" data-index="3"><span class="key">4 / F</span><span class="name">Fá</span></button>
+      <button class="note-btn" data-index="4"><span class="key">5 / G</span><span class="name">Sol</span></button>
+      <button class="note-btn" data-index="5"><span class="key">6 / H</span><span class="name">Lá</span></button>
+      <button class="note-btn" data-index="6"><span class="key">7 / J</span><span class="name">Si</span></button>
+      <button class="note-btn" data-index="7"><span class="key">8 / K</span><span class="name">Dó8</span></button>
+    </section>
+
+    <footer class="bottom-bar">
+      <button id="tonicBtn" class="btn-secondary">🔊 Referência Dó [Espaço]</button>
+      <div id="feedbackBanner" class="feedback-banner">Aguardando início...</div>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
