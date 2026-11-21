@@ -1,5 +1,5 @@
 // ==========================================
-// MEGASOUND v1.2 - Percepção Musical (Dó-Móvel)
+// MEGASOUND v1.3 - Percepção Musical (Dó-Móvel)
 // ==========================================
 
 const canvas = document.getElementById('gameCanvas');
@@ -12,7 +12,6 @@ const endStats = document.getElementById('endStats');
 const startBtn = document.getElementById('startBtn');
 const restartBtn = document.getElementById('restartBtn');
 const tonicBtn = document.getElementById('tonicBtn');
-const feedbackBanner = document.getElementById('feedbackBanner');
 const noteButtons = Array.from(document.querySelectorAll('.note-btn'));
 
 // Escala de Dó Maior (C4 a C5)
@@ -86,6 +85,18 @@ class SoundEngine {
     osc2.stop(now + duration + 0.03);
   }
 
+  // Toca a escala completa: Dó, Ré, Mi, Fá, Sol, Lá, Si, Dó8
+  // Retorna a duração total (em segundos) até o fim da última nota
+  playScaleIntro() {
+    this.init();
+    const step = 0.36;
+    const noteDur = 0.42;
+    SCALE.forEach((n, idx) => {
+      this.playClearNote(n.freq, noteDur, 0.24, idx * step);
+    });
+    return (SCALE.length - 1) * step + noteDur;
+  }
+
   playTonicReference() {
     this.init();
     this.playClearNote(261.63, 1.0, 0.30, 0);
@@ -146,6 +157,7 @@ const state = {
   misses: 0,
   waveTimer: 0,
   nextAttackDelay: 1.5,
+  introDelayRemaining: 0,
 
   player: {
     x: 130,
@@ -170,11 +182,6 @@ const state = {
   particles: [],
   floatingTexts: []
 };
-
-function setFeedback(text, color = '#a9c2ed') {
-  feedbackBanner.textContent = text;
-  feedbackBanner.style.color = color;
-}
 
 function setDeckEnabled(enabled) {
   noteButtons.forEach((btn) => {
@@ -239,12 +246,10 @@ function enemyFireWave() {
     note,
     radius: 22,
     phase: 0,
-    hasBeenAnswered: false,
-    remainingTime: WAVE_TRAVEL_SECONDS
+    hasBeenAnswered: false
   };
 
   setDeckEnabled(true);
-  setFeedback('Onda disparada (10s)! Você tem 1 tiro para contra-atacar.', '#ffd166');
 }
 
 function playerFireNote(noteIndex) {
@@ -295,6 +300,16 @@ function update(dt) {
   if (state.player.hurtTimer > 0) state.player.hurtTimer -= dt;
   if (state.player.shootAnim > 0) state.player.shootAnim -= dt;
 
+  // Aguarda a escala inicial (Dó Ré Mi Fá Sol Lá Si Dó) + 1 segundo antes do primeiro tiro
+  if (state.introDelayRemaining > 0) {
+    state.introDelayRemaining -= dt;
+    if (state.introDelayRemaining <= 0) {
+      state.introDelayRemaining = 0;
+      enemyFireWave();
+    }
+    return;
+  }
+
   if (!state.enemyWave && !state.playerShot) {
     setDeckEnabled(false);
     state.waveTimer += dt;
@@ -308,13 +323,12 @@ function update(dt) {
     const w = state.enemyWave;
     w.x += w.vx * dt;
     w.phase += dt * 10;
-    w.remainingTime = Math.max(0, w.remainingTime - dt);
 
     if (w.x <= state.player.x + 28) {
       const missedNoteName = w.note.name;
       state.enemyWave = null;
       setDeckEnabled(false);
-      damagePlayer(15, `Tempo esgotado! Era ${missedNoteName}.`);
+      damagePlayer(15, `Era ${missedNoteName}`);
     }
   }
 
@@ -337,13 +351,11 @@ function update(dt) {
           triggerShake(7, 0.18);
           spawnParticles(w.x, w.y, '#00e5ff', 24, 1.3);
           spawnFloatingText(w.x, w.y - 30, `CONTRA-ATAQUE! (${w.note.name})`, '#00e5ff');
-          setFeedback(`Acertou ${w.note.name}! Onda absorvida — atingindo o inimigo!`, '#06d6a0');
         } else {
           const correctName = w.note.name;
-          const wrongName = s.note.name;
           state.playerShot = null;
           state.enemyWave = null;
-          damagePlayer(15, `Você tocou ${wrongName}, mas era ${correctName}!`);
+          damagePlayer(15, `Era ${correctName}`);
         }
       }
     }
@@ -378,8 +390,7 @@ function damagePlayer(amount, reasonText) {
   audio.playHitFx();
   triggerShake(11, 0.28);
   spawnParticles(state.player.x, state.player.y - 26, '#ff4d6d', 22, 1.2);
-  spawnFloatingText(state.player.x + 25, state.player.y - 78, `-${amount} HP`, '#ff4d6d');
-  setFeedback(`Dano recebido! ${reasonText}`, '#ff4d6d');
+  spawnFloatingText(state.player.x + 25, state.player.y - 78, `-${amount} HP (${reasonText})`, '#ff4d6d');
 
   if (state.player.hp <= 0) {
     endGame(false);
@@ -567,10 +578,6 @@ function drawProjectiles() {
     ctx.textBaseline = 'middle';
     ctx.fillText('♪', 0, 1);
 
-    ctx.fillStyle = '#ffd166';
-    ctx.font = 'bold 12px Courier New';
-    ctx.fillText(`${w.remainingTime.toFixed(1)}s`, 0, -28);
-
     ctx.restore();
   }
 
@@ -673,15 +680,16 @@ function startBattle() {
   state.floatingTexts = [];
   state.hits = 0;
   state.misses = 0;
-  state.waveTimer = 0.2;
-  state.running = true;
+  state.waveTimer = 0;
 
   setDeckEnabled(false);
   startOverlay.classList.remove('active');
   endOverlay.classList.remove('active');
 
-  audio.playTonicReference();
-  setFeedback('Tonalidade de Dó estabelecida! Prepare-se para o ataque...', '#00e5ff');
+  // Toca a escala completa (Dó a Dó8) e aguarda + 1.0 segundo antes do primeiro disparo
+  const scaleDuration = audio.playScaleIntro();
+  state.introDelayRemaining = scaleDuration + 1.0;
+  state.running = true;
 }
 
 startBtn.addEventListener('click', startBattle);
@@ -689,7 +697,6 @@ restartBtn.addEventListener('click', startBattle);
 
 tonicBtn.addEventListener('click', () => {
   audio.playTonicReference();
-  setFeedback('Referência de Dó tocada!', '#7ee8ff');
 });
 
 noteButtons.forEach((btn) => {
@@ -699,7 +706,7 @@ noteButtons.forEach((btn) => {
   });
 });
 
-// Mapeamento físico (e.code) + caractere (e.key) para funcionar em qualquer teclado (ABNT2, US, etc.)
+// Mapeamento físico (e.code) + caractere (e.key)
 const CODE_MAP = {
   'KeyA': 0,       // Dó
   'KeyS': 1,       // Ré
@@ -708,7 +715,7 @@ const CODE_MAP = {
   'KeyJ': 4,       // Sol
   'KeyK': 5,       // Lá
   'KeyL': 6,       // Si
-  'Semicolon': 7   // Ç no layout ABNT2 (posição física à direita do L)
+  'Semicolon': 7   // Ç no layout ABNT2
 };
 
 const KEY_MAP = {
@@ -727,7 +734,6 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') {
     e.preventDefault();
     audio.playTonicReference();
-    setFeedback('Referência de Dó tocada!', '#7ee8ff');
     return;
   }
 
