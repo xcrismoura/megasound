@@ -1,5 +1,5 @@
 // ==========================================
-// MEGASOUND v1.1 - Percepção Musical (Dó-Móvel)
+// MEGASOUND v1.2 - Percepção Musical (Dó-Móvel)
 // ==========================================
 
 const canvas = document.getElementById('gameCanvas');
@@ -28,7 +28,7 @@ const SCALE = [
 ];
 
 // ==========================================
-// SISTEMA DE ÁUDIO (Som limpo estilo piano elétrico / sine puro, sem ruído)
+// SISTEMA DE ÁUDIO (Som limpo estilo piano elétrico / sine puro)
 // ==========================================
 class SoundEngine {
   constructor() {
@@ -45,12 +45,10 @@ class SoundEngine {
     }
   }
 
-  // Timbre cristalino e preciso para percepção de altura
   playClearNote(freq, duration = 1.0, volume = 0.28, delay = 0) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime + delay;
 
-    // Fundamental pura (sine) + harmônico suave (triangle com filtro passa-baixa)
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const filter = this.ctx.createBiquadFilter();
@@ -70,7 +68,6 @@ class SoundEngine {
     gain1.gain.setValueAtTime(0.8, now);
     gain2.gain.setValueAtTime(0.2, now);
 
-    // Envelope limpo sem cliques, sustentando por 1 segundo
     masterGain.gain.setValueAtTime(0.0001, now);
     masterGain.gain.linearRampToValueAtTime(volume, now + 0.025);
     masterGain.gain.setValueAtTime(volume * 0.85, now + duration * 0.7);
@@ -89,7 +86,6 @@ class SoundEngine {
     osc2.stop(now + duration + 0.03);
   }
 
-  // Referência limpa da tônica (Dó) por 1 segundo
   playTonicReference() {
     this.init();
     this.playClearNote(261.63, 1.0, 0.30, 0);
@@ -138,7 +134,7 @@ const audio = new SoundEngine();
 // ESTADO DO JOGO
 // ==========================================
 const MAX_HP = 100;
-const WAVE_TRAVEL_SECONDS = 10.0; // Exatamente 10 segundos até atingir o alvo
+const WAVE_TRAVEL_SECONDS = 10.0;
 
 const state = {
   running: false,
@@ -151,7 +147,6 @@ const state = {
   waveTimer: 0,
   nextAttackDelay: 1.5,
 
-  // Jogador agora à ESQUERDA
   player: {
     x: 130,
     y: 330,
@@ -161,7 +156,6 @@ const state = {
     shootAnim: 0
   },
 
-  // PC Inimigo agora à DIREITA
   enemy: {
     x: 830,
     y: 330,
@@ -171,8 +165,8 @@ const state = {
     shootAnim: 0
   },
 
-  enemyWave: null,   // Apenas uma onda sonora ativa por turno
-  playerShot: null,  // Apenas um disparo permitido por onda
+  enemyWave: null,
+  playerShot: null,
   particles: [],
   floatingTexts: []
 };
@@ -231,8 +225,8 @@ function enemyFireWave() {
 
   const startX = state.enemy.x - 48;
   const targetX = state.player.x + 28;
-  const distance = startX - targetX; // Positivo (da direita para a esquerda)
-  const speed = distance / WAVE_TRAVEL_SECONDS; // Exatamente 10 segundos até atingir o jogador
+  const distance = startX - targetX;
+  const speed = distance / WAVE_TRAVEL_SECONDS;
 
   state.enemy.shootAnim = 0.28;
   audio.playClearNote(note.freq, 1.0, 0.28);
@@ -256,7 +250,6 @@ function enemyFireWave() {
 function playerFireNote(noteIndex) {
   if (!state.running) return;
 
-  // Só permite atirar se houver uma onda ativa e o jogador ainda não tiver atirado contra ela
   if (!state.enemyWave || state.enemyWave.hasBeenAnswered || state.playerShot) {
     return;
   }
@@ -277,7 +270,7 @@ function playerFireNote(noteIndex) {
   state.playerShot = {
     x: state.player.x + 48,
     y: state.player.y - 26,
-    vx: 540, // Vai da esquerda para a direita
+    vx: 540,
     noteIndex,
     note,
     charged: false,
@@ -302,7 +295,6 @@ function update(dt) {
   if (state.player.hurtTimer > 0) state.player.hurtTimer -= dt;
   if (state.player.shootAnim > 0) state.player.shootAnim -= dt;
 
-  // Dispara nova onda inimiga quando a arena estiver livre
   if (!state.enemyWave && !state.playerShot) {
     setDeckEnabled(false);
     state.waveTimer += dt;
@@ -312,14 +304,12 @@ function update(dt) {
     }
   }
 
-  // Atualiza onda inimiga (Direita -> Esquerda)
   if (state.enemyWave) {
     const w = state.enemyWave;
     w.x += w.vx * dt;
     w.phase += dt * 10;
     w.remainingTime = Math.max(0, w.remainingTime - dt);
 
-    // Onda atingiu o jogador sem ser interceptada
     if (w.x <= state.player.x + 28) {
       const missedNoteName = w.note.name;
       state.enemyWave = null;
@@ -328,17 +318,14 @@ function update(dt) {
     }
   }
 
-  // Atualiza tiro único do jogador (Esquerda -> Direita)
   if (state.playerShot) {
     const s = state.playerShot;
     s.x += s.vx * dt;
 
-    // Verifica encontro com a onda sonora inimiga
     if (!s.charged && state.enemyWave) {
       const w = state.enemyWave;
       if (Math.abs(s.x - w.x) <= s.radius + w.radius) {
         if (s.noteIndex === w.noteIndex) {
-          // ACERTOU A NOTA! Absorve a onda sonora e contra-ataca o inimigo!
           state.enemyWave = null;
           s.charged = true;
           s.vx = 780;
@@ -352,7 +339,6 @@ function update(dt) {
           spawnFloatingText(w.x, w.y - 30, `CONTRA-ATAQUE! (${w.note.name})`, '#00e5ff');
           setFeedback(`Acertou ${w.note.name}! Onda absorvida — atingindo o inimigo!`, '#06d6a0');
         } else {
-          // ERROU A NOTA! O disparo falha e o jogador toma o dano imediatamente
           const correctName = w.note.name;
           const wrongName = s.note.name;
           state.playerShot = null;
@@ -362,14 +348,12 @@ function update(dt) {
       }
     }
 
-    // Tiro carregado atinge o PC Inimigo à direita
     if (state.playerShot && s.charged && s.x >= state.enemy.x - 34) {
       state.playerShot = null;
       damageEnemy(20);
     }
   }
 
-  // Atualiza partículas
   for (let i = state.particles.length - 1; i >= 0; i--) {
     const p = state.particles[i];
     p.x += p.vx * dt;
@@ -378,7 +362,6 @@ function update(dt) {
     if (p.life <= 0) state.particles.splice(i, 1);
   }
 
-  // Atualiza textos flutuantes
   for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
     const ft = state.floatingTexts[i];
     ft.y += ft.vy * dt;
@@ -428,10 +411,9 @@ function endGame(victory) {
 }
 
 // ==========================================
-// RENDERIZAÇÃO 2D (FUNDO ESTÁTICO + PERSONAGENS)
+// RENDERIZAÇÃO 2D
 // ==========================================
 function drawArena() {
-  // Fundo estático limpo
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   grad.addColorStop(0, '#070b19');
   grad.addColorStop(0.75, '#0f1936');
@@ -439,7 +421,6 @@ function drawArena() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Pauta musical estática no centro do palco
   ctx.strokeStyle = 'rgba(126, 232, 255, 0.14)';
   ctx.lineWidth = 1;
   for (let i = 0; i < 5; i++) {
@@ -450,7 +431,6 @@ function drawArena() {
     ctx.stroke();
   }
 
-  // Chão metálico estilo Mega Man
   ctx.fillStyle = '#141e38';
   ctx.fillRect(0, 370, canvas.width, 110);
 
@@ -484,47 +464,39 @@ function drawMegaHealthBar(x, y, hp, maxHp, label, primaryColor) {
   }
 }
 
-// Jogador à ESQUERDA (olhando para a direita)
 function drawPlayer(p) {
   if (p.hurtTimer > 0 && Math.floor(p.hurtTimer * 25) % 2 === 0) return;
 
   ctx.save();
   ctx.translate(p.x, p.y);
 
-  // Sombra
   ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.beginPath();
   ctx.ellipse(0, 38, 28, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Tronco armadura azul
   ctx.fillStyle = '#0077b6';
   ctx.fillRect(-20, -40, 40, 48);
 
-  // Peitoral ciano
   ctx.fillStyle = '#00b4d8';
   ctx.fillRect(-16, -36, 32, 22);
 
-  // Capacete
   ctx.fillStyle = '#0077b6';
   ctx.fillRect(-18, -68, 36, 28);
   ctx.fillStyle = '#00e5ff';
   ctx.fillRect(-6, -68, 12, 8);
 
-  // Rosto / Visor olhando para a direita
   ctx.fillStyle = '#ffe5d9';
   ctx.fillRect(-2, -58, 18, 16);
   ctx.fillStyle = '#03045e';
   ctx.fillRect(8, -55, 6, 7);
 
-  // Mega Buster apontando para a direita
   const recoil = p.shootAnim > 0 ? -6 : 0;
   ctx.fillStyle = '#0096c7';
   ctx.fillRect(16 + recoil, -32, 30, 16);
   ctx.fillStyle = '#00e5ff';
   ctx.fillRect(44 + recoil, -30, 6, 12);
 
-  // Botas
   ctx.fillStyle = '#0096c7';
   ctx.fillRect(-20, 8, 16, 30);
   ctx.fillRect(4, 8, 16, 30);
@@ -532,44 +504,36 @@ function drawPlayer(p) {
   ctx.restore();
 }
 
-// PC Inimigo à DIREITA (olhando para a esquerda)
 function drawEnemy(e) {
   if (e.hurtTimer > 0 && Math.floor(e.hurtTimer * 25) % 2 === 0) return;
 
   ctx.save();
   ctx.translate(e.x, e.y);
 
-  // Sombra
   ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.beginPath();
   ctx.ellipse(0, 38, 30, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Corpo robótico
   ctx.fillStyle = '#6b2cf5';
   ctx.fillRect(-24, -44, 48, 54);
 
-  // Ombreiras
   ctx.fillStyle = '#9b5de5';
   ctx.fillRect(-30, -46, 16, 20);
   ctx.fillRect(14, -46, 16, 20);
 
-  // Capacete / Cabeça
   ctx.fillStyle = '#4a1fb8';
   ctx.fillRect(-20, -72, 40, 28);
 
-  // Visor olhando para a esquerda
   ctx.fillStyle = '#ff4d6d';
   ctx.fillRect(-18, -64, 18, 10);
 
-  // Canhão sonoro apontando para a esquerda
   const recoil = e.shootAnim > 0 ? 6 : 0;
   ctx.fillStyle = '#2b2d42';
   ctx.fillRect(-50 + recoil, -32, 34, 18);
   ctx.fillStyle = '#ffd166';
   ctx.fillRect(-52 + recoil, -35, 6, 24);
 
-  // Pernas
   ctx.fillStyle = '#3a1894';
   ctx.fillRect(-20, 10, 15, 28);
   ctx.fillRect(5, 10, 15, 28);
@@ -578,13 +542,11 @@ function drawEnemy(e) {
 }
 
 function drawProjectiles() {
-  // Onda sonora inimiga (indo da direita para a esquerda)
   if (state.enemyWave) {
     const w = state.enemyWave;
     ctx.save();
     ctx.translate(w.x, w.y);
 
-    // Arcos voltados para a esquerda
     for (let r = 0; r < 3; r++) {
       const pulse = Math.sin(w.phase - r * 0.9) * 5;
       ctx.strokeStyle = r === 0 ? '#ffd166' : 'rgba(255, 209, 102, 0.45)';
@@ -605,7 +567,6 @@ function drawProjectiles() {
     ctx.textBaseline = 'middle';
     ctx.fillText('♪', 0, 1);
 
-    // Contador discreto de tempo restante acima da onda
     ctx.fillStyle = '#ffd166';
     ctx.font = 'bold 12px Courier New';
     ctx.fillText(`${w.remainingTime.toFixed(1)}s`, 0, -28);
@@ -613,7 +574,6 @@ function drawProjectiles() {
     ctx.restore();
   }
 
-  // Tiro do jogador (indo da esquerda para a direita)
   if (state.playerShot) {
     const s = state.playerShot;
     ctx.save();
@@ -679,7 +639,6 @@ function render() {
 
   drawArena();
 
-  // Barras de HP alinhadas com cada personagem (Jogador à esquerda, Inimigo à direita)
   drawMegaHealthBar(28, 34, state.player.hp, state.player.maxHp, 'JOGADOR', '#00e5ff');
   drawMegaHealthBar(canvas.width - 252, 34, state.enemy.hp, state.enemy.maxHp, 'PC-INIMIGO', '#ff4d6d');
 
@@ -740,7 +699,18 @@ noteButtons.forEach((btn) => {
   });
 });
 
-// Mapeamento exato: Dó Ré Mi Fá = A S D F | Sol Lá Si Dó = J K L Ç
+// Mapeamento físico (e.code) + caractere (e.key) para funcionar em qualquer teclado (ABNT2, US, etc.)
+const CODE_MAP = {
+  'KeyA': 0,       // Dó
+  'KeyS': 1,       // Ré
+  'KeyD': 2,       // Mi
+  'KeyF': 3,       // Fá
+  'KeyJ': 4,       // Sol
+  'KeyK': 5,       // Lá
+  'KeyL': 6,       // Si
+  'Semicolon': 7   // Ç no layout ABNT2 (posição física à direita do L)
+};
+
 const KEY_MAP = {
   'a': 0, 'A': 0,
   's': 1, 'S': 1,
@@ -760,8 +730,16 @@ window.addEventListener('keydown', (e) => {
     setFeedback('Referência de Dó tocada!', '#7ee8ff');
     return;
   }
-  if (e.key in KEY_MAP) {
-    playerFireNote(KEY_MAP[e.key]);
+
+  let noteIdx = undefined;
+  if (e.code in CODE_MAP) {
+    noteIdx = CODE_MAP[e.code];
+  } else if (e.key in KEY_MAP) {
+    noteIdx = KEY_MAP[e.key];
+  }
+
+  if (noteIdx !== undefined) {
+    playerFireNote(noteIdx);
   }
 });
 
