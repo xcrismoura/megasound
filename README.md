@@ -1,11 +1,14 @@
 # MegaSound
 
-Protótipo 2D de percepção musical baseado no **Dó-Móvel**, inspirado na estética de *Mega Man*.
+**MegaSound** é um jogo de ação 2D e percepção musical baseado no sistema de solfejo relativo **Dó-Móvel**, inspirado na estética clássica de *Mega Man*.
 
-## Como jogar
-1. Abra o arquivo `index.html` no seu navegador (ou publique este repositório no **GitHub Pages**).
-2. Clique em **Iniciar Batalha**. O jogo tocará uma cadência inicial na tonalidade de **Dó Maior** para ancorar seu ouvido.
-3. O inimigo à esquerda dispara uma onda sonora entre **Dó, Ré, Mi, Fá, Sol, Lá, Si e Dó8**.
-4. Dispare a mesma nota usando as teclas **1 a 8** (ou **A, S, D, F, G, H, J, K**) ou clicando nos botões inferiores.
-5. Ao colidir com a onda sonora correta, seu disparo **absorve a energia** da onda, transforma-se em um disparo carregado e causa dano ao HP do inimigo.
-6. Pressione **Espaço** a qualquer momento para ouvir novamente a tônica (Dó).
+## Sobre o Projeto
+
+Em uma arena 2D de duelo sonoro, o jogador enfrenta um oponente que dispara ondas musicais correspondentes aos graus da escala diatônica. Para vencer, é necessário identificar auditivamente a altura relativa de cada nota e contra-atacar disparando a mesma frequência, absorvendo a energia da onda inimiga para devolvê-la como um ataque carregado.
+
+## Características
+
+* **Treinamento Auditivo em Dó-Móvel:** Combate focado na identificação de intervalos e graus da escala maior a partir de uma tônica de referência.
+* **Combate de Contra-Ataque:** Mecânica de interceptação onde cada onda sonora exige precisão em um único disparo de resposta.
+* **Áudio Sintetizado via Web Audio API:** Geração de notas musicais puras diretamente no navegador, sem dependência de arquivos externos de áudio.
+* **Arquitetura Web Leve:** Desenvolvido com HTML5 Canvas, CSS3 e JavaScript puro.

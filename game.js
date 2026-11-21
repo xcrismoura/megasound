@@ -1,5 +1,5 @@
 // ==========================================
-// MEGASOUND - Protótipo 2D de Percepção Musical (Dó-Móvel)
+// MEGASOUND v1.1 - Percepção Musical (Dó-Móvel)
 // ==========================================
 
 const canvas = document.getElementById('gameCanvas');
@@ -17,18 +17,18 @@ const noteButtons = Array.from(document.querySelectorAll('.note-btn'));
 
 // Escala de Dó Maior (C4 a C5)
 const SCALE = [
-  { name: 'Dó',  degree: 'I',   freq: 261.63, color: '#ff4d6d' },
-  { name: 'Ré',  degree: 'II',  freq: 293.66, color: '#ff9248' },
-  { name: 'Mi',  degree: 'III', freq: 329.63, color: '#ffd166' },
-  { name: 'Fá',  degree: 'IV',  freq: 349.23, color: '#06d6a0' },
-  { name: 'Sol', degree: 'V',   freq: 392.00, color: '#00e5ff' },
-  { name: 'Lá',  degree: 'VI',  freq: 440.00, color: '#4ea8de' },
-  { name: 'Si',  degree: 'VII', freq: 493.88, color: '#9b5de5' },
-  { name: 'Dó8', degree: 'VIII',freq: 523.25, color: '#f15bb5' }
+  { name: 'Dó',  degree: 'I',    freq: 261.63, color: '#ff4d6d' },
+  { name: 'Ré',  degree: 'II',   freq: 293.66, color: '#ff9248' },
+  { name: 'Mi',  degree: 'III',  freq: 329.63, color: '#ffd166' },
+  { name: 'Fá',  degree: 'IV',   freq: 349.23, color: '#06d6a0' },
+  { name: 'Sol', degree: 'V',    freq: 392.00, color: '#00e5ff' },
+  { name: 'Lá',  degree: 'VI',   freq: 440.00, color: '#4ea8de' },
+  { name: 'Si',  degree: 'VII',  freq: 493.88, color: '#9b5de5' },
+  { name: 'Dó8', degree: 'VIII', freq: 523.25, color: '#f15bb5' }
 ];
 
 // ==========================================
-// SISTEMA DE ÁUDIO (Web Audio API - Synth Chiptune)
+// SISTEMA DE ÁUDIO (Som limpo estilo piano elétrico / sine puro, sem ruído)
 // ==========================================
 class SoundEngine {
   constructor() {
@@ -45,42 +45,54 @@ class SoundEngine {
     }
   }
 
-  playNote(freq, duration = 0.55, type = 'triangle', volume = 0.25, delay = 0) {
+  // Timbre cristalino e preciso para percepção de altura
+  playClearNote(freq, duration = 1.0, volume = 0.28, delay = 0) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime + delay;
 
-    const osc = this.ctx.createOscillator();
-    const subOsc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    // Fundamental pura (sine) + harmônico suave (triangle com filtro passa-baixa)
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain1 = this.ctx.createGain();
+    const gain2 = this.ctx.createGain();
+    const masterGain = this.ctx.createGain();
 
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, now);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
 
-    // Sub-oscilador sutil uma oitava abaixo para corpo estilo Mega Man
-    subOsc.type = 'sine';
-    subOsc.frequency.setValueAtTime(freq * 0.5, now);
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq, now);
 
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(volume, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1400, now);
 
-    osc.connect(gain);
-    subOsc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain1.gain.setValueAtTime(0.8, now);
+    gain2.gain.setValueAtTime(0.2, now);
 
-    osc.start(now);
-    subOsc.start(now);
-    osc.stop(now + duration + 0.02);
-    subOsc.stop(now + duration + 0.02);
+    // Envelope limpo sem cliques, sustentando por 1 segundo
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(volume, now + 0.025);
+    masterGain.gain.setValueAtTime(volume * 0.85, now + duration * 0.7);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc1.connect(gain1);
+    osc2.connect(gain2);
+    gain1.connect(filter);
+    gain2.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + duration + 0.03);
+    osc2.stop(now + duration + 0.03);
   }
 
-  // Toca referência da tonalidade (Dó - Mi - Sol - Dó)
+  // Referência limpa da tônica (Dó) por 1 segundo
   playTonicReference() {
     this.init();
-    this.playNote(261.63, 0.22, 'triangle', 0.18, 0.00);
-    this.playNote(329.63, 0.22, 'triangle', 0.16, 0.12);
-    this.playNote(392.00, 0.22, 'triangle', 0.16, 0.24);
-    this.playNote(261.63, 0.45, 'sine',     0.24, 0.36);
+    this.playClearNote(261.63, 1.0, 0.30, 0);
   }
 
   playAbsorbFx() {
@@ -88,17 +100,17 @@ class SoundEngine {
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(980, now + 0.18);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.16);
 
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.21);
+    osc.stop(now + 0.19);
   }
 
   playHitFx() {
@@ -106,17 +118,17 @@ class SoundEngine {
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(160, now);
-    osc.frequency.exponentialRampToValueAtTime(45, now + 0.25);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(52, now + 0.22);
 
-    gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.27);
+    osc.stop(now + 0.25);
   }
 }
 
@@ -126,6 +138,7 @@ const audio = new SoundEngine();
 // ESTADO DO JOGO
 // ==========================================
 const MAX_HP = 100;
+const WAVE_TRAVEL_SECONDS = 10.0; // Exatamente 10 segundos até atingir o alvo
 
 const state = {
   running: false,
@@ -135,13 +148,11 @@ const state = {
   hitStop: 0,
   hits: 0,
   misses: 0,
-  combo: 0,
   waveTimer: 0,
-  nextAttackDelay: 1.4,
-  bgOffset: 0,
+  nextAttackDelay: 1.5,
 
-  // PC Inimigo (Esquerda)
-  enemy: {
+  // Jogador agora à ESQUERDA
+  player: {
     x: 130,
     y: 330,
     hp: MAX_HP,
@@ -150,8 +161,8 @@ const state = {
     shootAnim: 0
   },
 
-  // Jogador (Direita)
-  player: {
+  // PC Inimigo agora à DIREITA
+  enemy: {
     x: 830,
     y: 330,
     hp: MAX_HP,
@@ -160,9 +171,8 @@ const state = {
     shootAnim: 0
   },
 
-  // Projéteis ativos
-  enemyWaves: [],    // Ondas sonoras indo da esquerda -> direita
-  playerShots: [],   // Tiros do jogador indo da direita -> esquerda
+  enemyWave: null,   // Apenas uma onda sonora ativa por turno
+  playerShot: null,  // Apenas um disparo permitido por onda
   particles: [],
   floatingTexts: []
 };
@@ -170,6 +180,12 @@ const state = {
 function setFeedback(text, color = '#a9c2ed') {
   feedbackBanner.textContent = text;
   feedbackBanner.style.color = color;
+}
+
+function setDeckEnabled(enabled) {
+  noteButtons.forEach((btn) => {
+    btn.disabled = !enabled;
+  });
 }
 
 function triggerShake(intensity = 8, duration = 0.22) {
@@ -198,60 +214,75 @@ function spawnFloatingText(x, y, text, color = '#ffffff') {
   state.floatingTexts.push({
     x,
     y,
-    vy: -48,
+    vy: -42,
     text,
     color,
-    life: 0.95
+    life: 1.05
   });
 }
 
 // ==========================================
-// MECÂNICA DE ATAQUE E CONTRA-ATAQUE
+// MECÂNICA DE ATAQUE E CONTRA-ATAQUE (1 TIRO POR VEZ)
 // ==========================================
 function enemyFireWave() {
   if (!state.running) return;
   const noteIndex = Math.floor(Math.random() * SCALE.length);
   const note = SCALE[noteIndex];
 
-  state.enemy.shootAnim = 0.28;
-  audio.playNote(note.freq, 0.75, 'sawtooth', 0.20);
+  const startX = state.enemy.x - 48;
+  const targetX = state.player.x + 28;
+  const distance = startX - targetX; // Positivo (da direita para a esquerda)
+  const speed = distance / WAVE_TRAVEL_SECONDS; // Exatamente 10 segundos até atingir o jogador
 
-  state.enemyWaves.push({
-    x: state.enemy.x + 48,
+  state.enemy.shootAnim = 0.28;
+  audio.playClearNote(note.freq, 1.0, 0.28);
+
+  state.enemyWave = {
+    x: startX,
     y: state.enemy.y - 26,
-    vx: 205, // Velocidade justa para ouvir, identificar e contra-atacar
+    vx: -speed,
     noteIndex,
     note,
     radius: 22,
-    phase: 0
-  });
+    phase: 0,
+    hasBeenAnswered: false,
+    remainingTime: WAVE_TRAVEL_SECONDS
+  };
 
-  setFeedback('Onda sonora disparada! Identifique a nota e contra-ataque!', '#ffd166');
+  setDeckEnabled(true);
+  setFeedback('Onda disparada (10s)! Você tem 1 tiro para contra-atacar.', '#ffd166');
 }
 
 function playerFireNote(noteIndex) {
   if (!state.running) return;
+
+  // Só permite atirar se houver uma onda ativa e o jogador ainda não tiver atirado contra ela
+  if (!state.enemyWave || state.enemyWave.hasBeenAnswered || state.playerShot) {
+    return;
+  }
+
+  state.enemyWave.hasBeenAnswered = true;
+  setDeckEnabled(false);
+
   const note = SCALE[noteIndex];
-
   state.player.shootAnim = 0.22;
-  audio.playNote(note.freq, 0.38, 'triangle', 0.22);
+  audio.playClearNote(note.freq, 1.0, 0.26);
 
-  // Destaca botão na interface
   const btn = noteButtons[noteIndex];
   if (btn) {
     btn.classList.add('pressed');
-    setTimeout(() => btn.classList.remove('pressed'), 140);
+    setTimeout(() => btn.classList.remove('pressed'), 150);
   }
 
-  state.playerShots.push({
-    x: state.player.x - 48,
+  state.playerShot = {
+    x: state.player.x + 48,
     y: state.player.y - 26,
-    vx: -480,
+    vx: 540, // Vai da esquerda para a direita
     noteIndex,
     note,
-    charged: false, // Fica true ao absorver a onda inimiga!
+    charged: false,
     radius: 12
-  });
+  };
 }
 
 // ==========================================
@@ -265,16 +296,15 @@ function update(dt) {
     return;
   }
 
-  state.bgOffset = (state.bgOffset + dt * 28) % 64;
-
   if (state.shakeTime > 0) state.shakeTime -= dt;
   if (state.enemy.hurtTimer > 0) state.enemy.hurtTimer -= dt;
   if (state.enemy.shootAnim > 0) state.enemy.shootAnim -= dt;
   if (state.player.hurtTimer > 0) state.player.hurtTimer -= dt;
   if (state.player.shootAnim > 0) state.player.shootAnim -= dt;
 
-  // Dispara nova onda inimiga quando não há ondas na tela
-  if (state.enemyWaves.length === 0) {
+  // Dispara nova onda inimiga quando a arena estiver livre
+  if (!state.enemyWave && !state.playerShot) {
+    setDeckEnabled(false);
     state.waveTimer += dt;
     if (state.waveTimer >= state.nextAttackDelay) {
       state.waveTimer = 0;
@@ -282,67 +312,60 @@ function update(dt) {
     }
   }
 
-  // Atualiza ondas inimigas (Esquerda -> Direita)
-  for (let i = state.enemyWaves.length - 1; i >= 0; i--) {
-    const w = state.enemyWaves[i];
+  // Atualiza onda inimiga (Direita -> Esquerda)
+  if (state.enemyWave) {
+    const w = state.enemyWave;
     w.x += w.vx * dt;
-    w.phase += dt * 12;
+    w.phase += dt * 10;
+    w.remainingTime = Math.max(0, w.remainingTime - dt);
 
-    // Atingiu o jogador
-    if (w.x >= state.player.x - 28) {
-      state.enemyWaves.splice(i, 1);
-      damagePlayer(15, `Era ${w.note.name}!`);
+    // Onda atingiu o jogador sem ser interceptada
+    if (w.x <= state.player.x + 28) {
+      const missedNoteName = w.note.name;
+      state.enemyWave = null;
+      setDeckEnabled(false);
+      damagePlayer(15, `Tempo esgotado! Era ${missedNoteName}.`);
     }
   }
 
-  // Atualiza tiros do jogador (Direita -> Esquerda)
-  for (let i = state.playerShots.length - 1; i >= 0; i--) {
-    const s = state.playerShots[i];
+  // Atualiza tiro único do jogador (Esquerda -> Direita)
+  if (state.playerShot) {
+    const s = state.playerShot;
     s.x += s.vx * dt;
 
-    // Verifica colisão com ondas sonoras inimigas (se ainda não carregado)
-    if (!s.charged) {
-      for (let j = state.enemyWaves.length - 1; j >= 0; j--) {
-        const w = state.enemyWaves[j];
-        if (Math.abs(s.x - w.x) <= s.radius + w.radius) {
-          if (s.noteIndex === w.noteIndex) {
-            // ACERTOU A NOTA! Absorve a energia da onda sonora!
-            state.enemyWaves.splice(j, 1);
-            s.charged = true;
-            s.vx = -760; // Disparo carregado ultra-rápido!
-            s.radius = 24;
-            state.hits++;
-            state.combo++;
-            state.hitStop = 0.055; // Impacto estilo Mega Man / Touhou
+    // Verifica encontro com a onda sonora inimiga
+    if (!s.charged && state.enemyWave) {
+      const w = state.enemyWave;
+      if (Math.abs(s.x - w.x) <= s.radius + w.radius) {
+        if (s.noteIndex === w.noteIndex) {
+          // ACERTOU A NOTA! Absorve a onda sonora e contra-ataca o inimigo!
+          state.enemyWave = null;
+          s.charged = true;
+          s.vx = 780;
+          s.radius = 24;
+          state.hits++;
+          state.hitStop = 0.055;
 
-            audio.playAbsorbFx();
-            triggerShake(7, 0.18);
-            spawnParticles(w.x, w.y, '#00e5ff', 24, 1.3);
-            spawnFloatingText(w.x, w.y - 30, `CONTRA-ATAQUE! (${w.note.name})`, '#00e5ff');
-            setFeedback(`Acertou ${w.note.name}! Energia absorvida — contra-ataque lançado!`, '#06d6a0');
-          } else {
-            // ERROU A NOTA! Tiro do jogador dissipa e a onda inimiga continua
-            state.playerShots.splice(i, 1);
-            state.combo = 0;
-            spawnParticles(s.x, s.y, '#ff4d6d', 10, 0.7);
-            spawnFloatingText(s.x, s.y - 24, `Nota errada (${s.note.name})!`, '#ff4d6d');
-            setFeedback(`Você disparou ${s.note.name}, mas a onda tem outra altura!`, '#ff4d6d');
-          }
-          break;
+          audio.playAbsorbFx();
+          triggerShake(7, 0.18);
+          spawnParticles(w.x, w.y, '#00e5ff', 24, 1.3);
+          spawnFloatingText(w.x, w.y - 30, `CONTRA-ATAQUE! (${w.note.name})`, '#00e5ff');
+          setFeedback(`Acertou ${w.note.name}! Onda absorvida — atingindo o inimigo!`, '#06d6a0');
+        } else {
+          // ERROU A NOTA! O disparo falha e o jogador toma o dano imediatamente
+          const correctName = w.note.name;
+          const wrongName = s.note.name;
+          state.playerShot = null;
+          state.enemyWave = null;
+          damagePlayer(15, `Você tocou ${wrongName}, mas era ${correctName}!`);
         }
       }
     }
 
-    // Verifica se o tiro (carregado ou normal) chegou ao inimigo
-    if (state.playerShots[i] && s.x <= state.enemy.x + 34) {
-      state.playerShots.splice(i, 1);
-      if (s.charged) {
-        damageEnemy(20, s.note.name);
-      } else {
-        // Tiro sem absorver onda inimiga não causa dano (só contra-ataque causa dano)
-        spawnParticles(state.enemy.x + 34, s.y, '#6c7a9c', 8, 0.5);
-        spawnFloatingText(state.enemy.x + 20, s.y - 30, 'SEM ENERGIA!', '#8fa8d6');
-      }
+    // Tiro carregado atinge o PC Inimigo à direita
+    if (state.playerShot && s.charged && s.x >= state.enemy.x - 34) {
+      state.playerShot = null;
+      damageEnemy(20);
     }
   }
 
@@ -368,20 +391,19 @@ function damagePlayer(amount, reasonText) {
   state.player.hp = Math.max(0, state.player.hp - amount);
   state.player.hurtTimer = 0.45;
   state.misses++;
-  state.combo = 0;
 
   audio.playHitFx();
   triggerShake(11, 0.28);
   spawnParticles(state.player.x, state.player.y - 26, '#ff4d6d', 22, 1.2);
-  spawnFloatingText(state.player.x - 20, state.player.y - 75, `-${amount} HP (${reasonText})`, '#ff4d6d');
-  setFeedback(`Você sofreu dano! ${reasonText}`, '#ff4d6d');
+  spawnFloatingText(state.player.x + 25, state.player.y - 78, `-${amount} HP`, '#ff4d6d');
+  setFeedback(`Dano recebido! ${reasonText}`, '#ff4d6d');
 
   if (state.player.hp <= 0) {
     endGame(false);
   }
 }
 
-function damageEnemy(amount, noteName) {
+function damageEnemy(amount) {
   state.enemy.hp = Math.max(0, state.enemy.hp - amount);
   state.enemy.hurtTimer = 0.4;
   state.hitStop = 0.05;
@@ -389,7 +411,7 @@ function damageEnemy(amount, noteName) {
   audio.playHitFx();
   triggerShake(10, 0.24);
   spawnParticles(state.enemy.x, state.enemy.y - 26, '#ffd166', 26, 1.35);
-  spawnFloatingText(state.enemy.x - 10, state.enemy.y - 78, `-${amount} HP!`, '#ffd166');
+  spawnFloatingText(state.enemy.x - 20, state.enemy.y - 78, `-${amount} HP!`, '#ffd166');
 
   if (state.enemy.hp <= 0) {
     endGame(true);
@@ -398,6 +420,7 @@ function damageEnemy(amount, noteName) {
 
 function endGame(victory) {
   state.running = false;
+  setDeckEnabled(false);
   endOverlay.classList.add('active');
   endTitle.textContent = victory ? 'VITÓRIA!' : 'DERROTA!';
   endTitle.style.color = victory ? '#06d6a0' : '#ff4d6d';
@@ -405,10 +428,10 @@ function endGame(victory) {
 }
 
 // ==========================================
-// RENDERIZAÇÃO 2D (ESTILO MEGA MAN)
+// RENDERIZAÇÃO 2D (FUNDO ESTÁTICO + PERSONAGENS)
 // ==========================================
 function drawArena() {
-  // Fundo cyber-musical
+  // Fundo estático limpo
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   grad.addColorStop(0, '#070b19');
   grad.addColorStop(0.75, '#0f1936');
@@ -416,24 +439,9 @@ function drawArena() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Grade futurista no fundo
-  ctx.strokeStyle = 'rgba(0, 229, 255, 0.07)';
-  ctx.lineWidth = 1;
-  for (let x = -state.bgOffset; x < canvas.width; x += 64) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, 370);
-    ctx.stroke();
-  }
-  for (let y = 64; y < 370; y += 64) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
-  }
-
-  // Pauta musical sutil no centro do palco
+  // Pauta musical estática no centro do palco
   ctx.strokeStyle = 'rgba(126, 232, 255, 0.14)';
+  ctx.lineWidth = 1;
   for (let i = 0; i < 5; i++) {
     const lineY = 270 + i * 14;
     ctx.beginPath();
@@ -455,77 +463,28 @@ function drawArena() {
   }
 }
 
-// Barras de HP segmentadas estilo Mega Man
 function drawMegaHealthBar(x, y, hp, maxHp, label, primaryColor) {
   const segments = 20;
   const filled = Math.ceil((hp / maxHp) * segments);
 
-  // Nome
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 14px Courier New';
   ctx.textAlign = 'left';
   ctx.fillText(`${label} (${hp}/${maxHp})`, x, y - 8);
 
-  // Moldura externa
   ctx.fillStyle = '#050811';
   ctx.fillRect(x, y, 224, 24);
   ctx.strokeStyle = '#7ee8ff';
   ctx.lineWidth = 2;
   ctx.strokeRect(x, y, 224, 24);
 
-  // Segmentos
   for (let i = 0; i < segments; i++) {
     ctx.fillStyle = i < filled ? primaryColor : '#1b243b';
     ctx.fillRect(x + 4 + i * 11, y + 4, 8, 16);
   }
 }
 
-// Desenha o PC Inimigo (Esquerda, olhando para a direita)
-function drawEnemy(e) {
-  if (e.hurtTimer > 0 && Math.floor(e.hurtTimer * 25) % 2 === 0) return;
-
-  ctx.save();
-  ctx.translate(e.x, e.y);
-
-  // Sombra
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(0, 38, 30, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Corpo robótico estilo Boss de Mega Man
-  ctx.fillStyle = '#6b2cf5';
-  ctx.fillRect(-24, -44, 48, 54);
-
-  // Ombreiras
-  ctx.fillStyle = '#9b5de5';
-  ctx.fillRect(-30, -46, 16, 20);
-  ctx.fillRect(14, -46, 16, 20);
-
-  // Capacete / Cabeça
-  ctx.fillStyle = '#4a1fb8';
-  ctx.fillRect(-20, -72, 40, 28);
-
-  // Visor brilhante
-  ctx.fillStyle = '#ff4d6d';
-  ctx.fillRect(0, -64, 18, 10);
-
-  // Canhão sonoro (braço direito apontando para a direita)
-  const recoil = e.shootAnim > 0 ? -6 : 0;
-  ctx.fillStyle = '#2b2d42';
-  ctx.fillRect(16 + recoil, -32, 34, 18);
-  ctx.fillStyle = '#ffd166';
-  ctx.fillRect(46 + recoil, -35, 6, 24);
-
-  // Pernas
-  ctx.fillStyle = '#3a1894';
-  ctx.fillRect(-20, 10, 15, 28);
-  ctx.fillRect(5, 10, 15, 28);
-
-  ctx.restore();
-}
-
-// Desenha o Jogador (Direita, olhando para a esquerda)
+// Jogador à ESQUERDA (olhando para a direita)
 function drawPlayer(p) {
   if (p.hurtTimer > 0 && Math.floor(p.hurtTimer * 25) % 2 === 0) return;
 
@@ -538,7 +497,7 @@ function drawPlayer(p) {
   ctx.ellipse(0, 38, 28, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Tronco armadura azul estilo Mega Man
+  // Tronco armadura azul
   ctx.fillStyle = '#0077b6';
   ctx.fillRect(-20, -40, 40, 48);
 
@@ -552,20 +511,20 @@ function drawPlayer(p) {
   ctx.fillStyle = '#00e5ff';
   ctx.fillRect(-6, -68, 12, 8);
 
-  // Rosto / Visor olhando para a esquerda
+  // Rosto / Visor olhando para a direita
   ctx.fillStyle = '#ffe5d9';
-  ctx.fillRect(-16, -58, 18, 16);
+  ctx.fillRect(-2, -58, 18, 16);
   ctx.fillStyle = '#03045e';
-  ctx.fillRect(-14, -55, 6, 7);
+  ctx.fillRect(8, -55, 6, 7);
 
-  // Mega Buster (apontando para a esquerda)
-  const recoil = p.shootAnim > 0 ? 6 : 0;
+  // Mega Buster apontando para a direita
+  const recoil = p.shootAnim > 0 ? -6 : 0;
   ctx.fillStyle = '#0096c7';
-  ctx.fillRect(-46 + recoil, -32, 30, 16);
+  ctx.fillRect(16 + recoil, -32, 30, 16);
   ctx.fillStyle = '#00e5ff';
-  ctx.fillRect(-50 + recoil, -30, 6, 12);
+  ctx.fillRect(44 + recoil, -30, 6, 12);
 
-  // Botas estilo Mega Man
+  // Botas
   ctx.fillStyle = '#0096c7';
   ctx.fillRect(-20, 8, 16, 30);
   ctx.fillRect(4, 8, 16, 30);
@@ -573,23 +532,68 @@ function drawPlayer(p) {
   ctx.restore();
 }
 
+// PC Inimigo à DIREITA (olhando para a esquerda)
+function drawEnemy(e) {
+  if (e.hurtTimer > 0 && Math.floor(e.hurtTimer * 25) % 2 === 0) return;
+
+  ctx.save();
+  ctx.translate(e.x, e.y);
+
+  // Sombra
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 38, 30, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Corpo robótico
+  ctx.fillStyle = '#6b2cf5';
+  ctx.fillRect(-24, -44, 48, 54);
+
+  // Ombreiras
+  ctx.fillStyle = '#9b5de5';
+  ctx.fillRect(-30, -46, 16, 20);
+  ctx.fillRect(14, -46, 16, 20);
+
+  // Capacete / Cabeça
+  ctx.fillStyle = '#4a1fb8';
+  ctx.fillRect(-20, -72, 40, 28);
+
+  // Visor olhando para a esquerda
+  ctx.fillStyle = '#ff4d6d';
+  ctx.fillRect(-18, -64, 18, 10);
+
+  // Canhão sonoro apontando para a esquerda
+  const recoil = e.shootAnim > 0 ? 6 : 0;
+  ctx.fillStyle = '#2b2d42';
+  ctx.fillRect(-50 + recoil, -32, 34, 18);
+  ctx.fillStyle = '#ffd166';
+  ctx.fillRect(-52 + recoil, -35, 6, 24);
+
+  // Pernas
+  ctx.fillStyle = '#3a1894';
+  ctx.fillRect(-20, 10, 15, 28);
+  ctx.fillRect(5, 10, 15, 28);
+
+  ctx.restore();
+}
+
 function drawProjectiles() {
-  // Ondas sonoras inimigas
-  for (const w of state.enemyWaves) {
+  // Onda sonora inimiga (indo da direita para a esquerda)
+  if (state.enemyWave) {
+    const w = state.enemyWave;
     ctx.save();
     ctx.translate(w.x, w.y);
 
-    // Anéis de onda sonora
+    // Arcos voltados para a esquerda
     for (let r = 0; r < 3; r++) {
       const pulse = Math.sin(w.phase - r * 0.9) * 5;
       ctx.strokeStyle = r === 0 ? '#ffd166' : 'rgba(255, 209, 102, 0.45)';
       ctx.lineWidth = 3 - r * 0.6;
       ctx.beginPath();
-      ctx.arc(0, 0, w.radius + pulse - r * 5, -Math.PI * 0.45, Math.PI * 0.45);
+      ctx.arc(0, 0, w.radius + pulse - r * 5, Math.PI * 0.55, Math.PI * 1.45);
       ctx.stroke();
     }
 
-    // Núcleo energético (sem mostrar o nome da nota, para o jogador usar o ouvido!)
     ctx.fillStyle = '#ff9f1c';
     ctx.beginPath();
     ctx.arc(0, 0, 10, 0, Math.PI * 2);
@@ -601,19 +605,24 @@ function drawProjectiles() {
     ctx.textBaseline = 'middle';
     ctx.fillText('♪', 0, 1);
 
+    // Contador discreto de tempo restante acima da onda
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText(`${w.remainingTime.toFixed(1)}s`, 0, -28);
+
     ctx.restore();
   }
 
-  // Tiros do jogador
-  for (const s of state.playerShots) {
+  // Tiro do jogador (indo da esquerda para a direita)
+  if (state.playerShot) {
+    const s = state.playerShot;
     ctx.save();
     ctx.translate(s.x, s.y);
 
     if (s.charged) {
-      // Disparo carregado após absorver a onda sonora!
       ctx.fillStyle = 'rgba(0, 229, 255, 0.35)';
       ctx.beginPath();
-      ctx.ellipse(12, 0, 38, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(-12, 0, 38, 22, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#00e5ff';
@@ -626,7 +635,6 @@ function drawProjectiles() {
       ctx.arc(0, 0, 9, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Tiro inicial do jogador
       ctx.fillStyle = s.note.color;
       ctx.beginPath();
       ctx.arc(0, 0, 11, 0, Math.PI * 2);
@@ -671,12 +679,12 @@ function render() {
 
   drawArena();
 
-  // Barras de HP no topo
-  drawMegaHealthBar(28, 34, state.enemy.hp, state.enemy.maxHp, 'PC-INIMIGO', '#ff4d6d');
-  drawMegaHealthBar(canvas.width - 252, 34, state.player.hp, state.player.maxHp, 'JOGADOR', '#00e5ff');
+  // Barras de HP alinhadas com cada personagem (Jogador à esquerda, Inimigo à direita)
+  drawMegaHealthBar(28, 34, state.player.hp, state.player.maxHp, 'JOGADOR', '#00e5ff');
+  drawMegaHealthBar(canvas.width - 252, 34, state.enemy.hp, state.enemy.maxHp, 'PC-INIMIGO', '#ff4d6d');
 
-  drawEnemy(state.enemy);
   drawPlayer(state.player);
+  drawEnemy(state.enemy);
   drawProjectiles();
   drawEffects();
 
@@ -700,21 +708,21 @@ function startBattle() {
   audio.init();
   state.enemy.hp = MAX_HP;
   state.player.hp = MAX_HP;
-  state.enemyWaves = [];
-  state.playerShots = [];
+  state.enemyWave = null;
+  state.playerShot = null;
   state.particles = [];
   state.floatingTexts = [];
   state.hits = 0;
   state.misses = 0;
-  state.combo = 0;
   state.waveTimer = 0.2;
   state.running = true;
 
+  setDeckEnabled(false);
   startOverlay.classList.remove('active');
   endOverlay.classList.remove('active');
 
   audio.playTonicReference();
-  setFeedback('Tonalidade de Dó estabelecida! Prepare-se para o primeiro ataque...', '#00e5ff');
+  setFeedback('Tonalidade de Dó estabelecida! Prepare-se para o ataque...', '#00e5ff');
 }
 
 startBtn.addEventListener('click', startBattle);
@@ -732,15 +740,16 @@ noteButtons.forEach((btn) => {
   });
 });
 
+// Mapeamento exato: Dó Ré Mi Fá = A S D F | Sol Lá Si Dó = J K L Ç
 const KEY_MAP = {
-  '1': 0, 'a': 0, 'A': 0,
-  '2': 1, 's': 1, 'S': 1,
-  '3': 2, 'd': 2, 'D': 2,
-  '4': 3, 'f': 3, 'F': 3,
-  '5': 4, 'g': 4, 'G': 4,
-  '6': 5, 'h': 5, 'H': 5,
-  '7': 6, 'j': 6, 'J': 6,
-  '8': 7, 'k': 7, 'K': 7
+  'a': 0, 'A': 0,
+  's': 1, 'S': 1,
+  'd': 2, 'D': 2,
+  'f': 3, 'F': 3,
+  'j': 4, 'J': 4,
+  'k': 5, 'K': 5,
+  'l': 6, 'L': 6,
+  'ç': 7, 'Ç': 7
 };
 
 window.addEventListener('keydown', (e) => {
